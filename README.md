@@ -13,7 +13,7 @@ Vaani does two jobs:
    - **AI cleanup** removes fillers and applies "no wait, I mean…" corrections and punctuation.
      The tone fits the app you're typing in.
    - **Hindi/Hinglish**: speak in either. You get the output mode you set (as spoken, English, or Hindi).
-   - **Command mode**: select text, hold the command key and say what to do
+   - **Command mode**: select text, hold **Shift + Right Ctrl** and say what to do
      ("make it shorter", "isko polite English mein likho"). The selection is replaced.
    - **Dictionary and snippets**: in `dictionary.json`, list words it keeps misspelling and phrases
      that expand ("my sign off" turns into your full signature).
@@ -36,13 +36,15 @@ Vaani does two jobs:
 - **Transcribe**: double-click `transcribe.bat`, paste a YouTube link (or drag in a file) and press Enter.
   The results go to `transcripts\<title>\`:
   `transcript_<language>.md`, `english.md`, `raw_timestamped.txt`, `subtitles_original.srt`.
+  If a run stops halfway, run it again with the same link or file. It continues where it stopped (`--fresh` starts over).
   From a terminal you have more options:
   ```
   .venv\Scripts\python -m vaani.transcribe "https://youtu.be/..." --hindi hinglish-roman --context "Ramayana explainer"
   ```
 - **Dictate**: double-click `start_dictation.bat` and leave the window open.
   - Hold **Right Ctrl** and speak to type.
-  - Hold **Right Alt** and speak to edit the selected text.
+  - Hold **Shift + Right Ctrl** and speak to edit the selected text.
+  - If you switch windows while it's working, nothing is pasted. The text goes on your clipboard instead.
   - **Ctrl+Alt+Q** quits.
 
 The first run of either `.bat` file installs everything into `.venv` by itself.
@@ -53,9 +55,11 @@ The first run of either `.bat` file installs everything into `.venv` by itself.
 |---|---|
 | `dictation_output` | `as_spoken` (default), `english`, `hindi` |
 | `hinglish_script` | `roman` (Aaj meeting hai) or `devanagari` |
-| `dictate_key`, `command_key` | any key name, e.g. `right ctrl`, `f9`, `caps lock` |
+| `dictate_key` | hold-to-talk key (default `right ctrl`); add Shift for command mode |
+| `command_key` | optional separate command key, e.g. `f9` (avoid `right alt`: on Indian layouts it's AltGr) |
+| `dictation_model` | Claude model for live typing; `claude-haiku-5-5` is faster and cheaper |
 | `stt_engine` | `groq` (default) or `elevenlabs` (set `ELEVENLABS_API_KEY`; often better on heavy Hinglish) |
-| `model` | Claude model for text steps (default `claude-opus-5-5`) |
+| `model` | Claude model for transcripts (default `claude-opus-5-5`) |
 
 ## How it works
 
@@ -70,3 +74,8 @@ mic / YouTube / file
 ```
 
 Long system prompts are prompt-cached, so repeat calls cost less.
+
+## Known limits
+
+- Only text on the clipboard is saved and restored during typing. A copied image or file is replaced.
+- Windows blocks hotkeys and typing into apps run "as administrator" unless Vaani is also started as administrator.

@@ -1,5 +1,6 @@
 {
   "model": "claude-opus-5-5",
+  "dictation_model": "claude-opus-5-5",
   "dictation_effort": "low",
   "adaptation_effort": "high",
   "stt_engine": "groq",
@@ -7,6 +8,6 @@
   "dictation_output": "as_spoken",
   "hinglish_script": "roman",
   "dictate_key": "right ctrl",
-  "command_key": "right alt",
+  "command_key": "",
   "chunk_minutes": 10
 }

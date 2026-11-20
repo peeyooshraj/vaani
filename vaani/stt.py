@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,7 +18,7 @@ class Segment:
 
 @dataclass
 class Transcript:
-    language: str  # e.g. "hindi", "english", "hi", "en" - normalised by language_code()
+    language: str  # normalised 2-letter code, see language_code()
     segments: list[Segment]
 
     @property
@@ -37,47 +38,63 @@ def language_code(lang: str | None) -> str:
     return names.get(lang, lang[:2])
 
 
-def transcribe(path: Path, engine: str = "groq", *, prompt: str = "", model: str = "whisper-large-v3",
+# Audio may be a file path or (filename, bytes) - dictation passes bytes so speech never touches the disk.
+Audio = Path | tuple[str, bytes]
+
+
+def transcribe(audio: Audio, engine: str = "groq", *, prompt: str = "", model: str = "whisper-large-v3",
                language: str | None = None) -> Transcript:
+    name, data = (audio.name, audio.read_bytes()) if isinstance(audio, Path) else audio
     if engine == "groq":
-        return _groq(path, prompt=prompt, model=model, language=language)
+        return _groq(name, data, prompt=prompt, model=model, language=language)
     if engine == "elevenlabs":
-        return _elevenlabs(path, language=language)
+        return _elevenlabs(name, data, language=language)
     raise ValueError(f"Unknown speech engine: {engine}")
 
 
-def _groq(path: Path, *, prompt: str, model: str, language: str | None) -> Transcript:
-    from groq import Groq
+_groq_client = None
+_groq_lock = threading.Lock()
 
-    client = Groq()  # reads GROQ_API_KEY
+
+def _groq_api():
+    global _groq_client
+    with _groq_lock:
+        if _groq_client is None:
+            from groq import Groq
+            _groq_client = Groq()  # reads GROQ_API_KEY; retries 429/5xx by itself
+        return _groq_client
+
+
+def _groq(name: str, data: bytes, *, prompt: str, model: str, language: str | None) -> Transcript:
     kwargs = {}
     if prompt:
         kwargs["prompt"] = prompt
     if language:
         kwargs["language"] = language
-    with open(path, "rb") as f:
-        r = client.audio.transcriptions.create(
-            model=model, file=(path.name, f.read()), response_format="verbose_json",
-            timestamp_granularities=["segment"], temperature=0.0, **kwargs,
-        )
-    data = r.model_dump() if hasattr(r, "model_dump") else dict(r)
-    segs = [Segment(float(s["start"]), float(s["end"]), s["text"]) for s in (data.get("segments") or [])]
-    if not segs and data.get("text"):
-        segs = [Segment(0.0, 0.0, data["text"])]
-    return Transcript(language_code(data.get("language")), segs)
+    r = _groq_api().audio.transcriptions.create(
+        model=model, file=(name, data), response_format="verbose_json",
+        timestamp_granularities=["segment"], temperature=0.0, **kwargs,
+    )
+    body = r.model_dump() if hasattr(r, "model_dump") else dict(r)
+    segs = [Segment(float(s["start"]), float(s["end"]), s["text"]) for s in (body.get("segments") or [])]
+    if not segs and body.get("text"):
+        segs = [Segment(0.0, 0.0, body["text"])]
+    return Transcript(language_code(body.get("language")), segs)
 
 
-def _elevenlabs(path: Path, *, language: str | None) -> Transcript:
-    key = os.environ["ELEVENLABS_API_KEY"]
-    data = {"model_id": "scribe_v1", "timestamps_granularity": "word"}
+def _elevenlabs(name: str, data: bytes, *, language: str | None) -> Transcript:
+    key = os.environ.get("ELEVENLABS_API_KEY")
+    if not key:
+        raise RuntimeError("ELEVENLABS_API_KEY is not set (needed because stt_engine is 'elevenlabs').")
+    form = {"model_id": "scribe_v1", "timestamps_granularity": "word"}
     if language:
-        data["language_code"] = language
-    with open(path, "rb") as f:
-        r = requests.post("https://api.elevenlabs.io/v1/speech-to-text",
-                          headers={"xi-api-key": key}, data=data, files={"file": (path.name, f)}, timeout=600)
+        form["language_code"] = language
+    r = requests.post("https://api.elevenlabs.io/v1/speech-to-text", headers={"xi-api-key": key},
+                      data=form, files={"file": (name, data)}, timeout=600)
     r.raise_for_status()
     body = r.json()
-    return Transcript(language_code(body.get("language_code")), words_to_segments(body.get("words") or [], body.get("text", "")))
+    return Transcript(language_code(body.get("language_code")),
+                      words_to_segments(body.get("words") or [], body.get("text", "")))
 
 
 def words_to_segments(words: list[dict], fallback_text: str = "", max_len: float = 12.0) -> list[Segment]:
