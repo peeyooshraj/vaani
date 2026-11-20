@@ -47,7 +47,7 @@ Vaani does two jobs:
   - If you switch windows while it's working, nothing is pasted. The text goes on your clipboard instead.
   - **Ctrl+Alt+Q** quits.
 
-The first run of either `.bat` file installs everything into `.venv` by itself.
+The first run of either `.bat` file installs everything into `.venv` by itself. If that install fails (for example, no internet), just run it again; it retries until it succeeds.
 
 ## Settings (`settings.json`)
 

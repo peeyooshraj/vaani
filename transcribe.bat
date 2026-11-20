@@ -1,11 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
-
-if not exist .venv (
-  py -3 -m venv .venv
-  .venv\Scripts\pip install -r requirements.txt
-)
+call setup_env.bat || (pause & exit /b 1)
 
 set "SRC="
 set /p "SRC=Paste a YouTube link or drag an audio file here: "
@@ -17,5 +13,5 @@ if not defined SRC (
 rem Remove quotes added by drag-and-drop, then pass the value as ONE quoted argument.
 rem Delayed expansion (!SRC!) keeps & | ^ in YouTube links from being run as commands.
 set "SRC=!SRC:"=!"
-.venv\Scripts\python -m vaani.transcribe "!SRC!"
+".venv\Scripts\python.exe" -m vaani.transcribe "!SRC!"
 pause
