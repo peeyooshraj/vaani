@@ -1,5 +1,7 @@
 # Vaani: voice typing and transcripts for Windows
 
+> New here? Read **[GUIDE.md](GUIDE.md)**: setup, daily use, costs, limitations, troubleshooting and roadmap.
+
 Vaani does two jobs:
 
 1. **Transcribe**: give it a YouTube link or an audio/video file and it writes the transcript.
