@@ -1,0 +1,7 @@
+anthropic>=2.11
+groq>=1.7
+yt-dlp
+requests
+sounddevice
+keyboard
+pyperclip
